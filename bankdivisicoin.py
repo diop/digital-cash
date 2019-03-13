@@ -74,3 +74,18 @@ class Bank:
     def handle_tx(self, tx):
         self.validate_tx(tx)
         self.txs[tx.id] = tx
+
+    def fetch_utxo(self, public_key):
+        # Find which (tx_id, index) pairs have been spent
+        spent_pairs = [(tx_in.tx_id, tx_in.index) 
+                        for tx in self.txs.values() 
+                        for tx_in in tx.tx_ins]
+        # Return tx_outs associated with public_key and not in ^^ list
+        return [tx_out for tx in self.txs.values() 
+                   for i, tx_out in enumerate(tx.tx_outs)
+                       if public_key.to_string() == tx_out.public_key.to_string()
+                       and (tx.id, i) not in spent_pairs]
+
+    def fetch_balance(self, public_key):
+        utxo = self.fetch_utxo(public_key)
+        return sum([tx_out.amount for tx_out in utxo])
