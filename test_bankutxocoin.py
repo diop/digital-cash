@@ -1,6 +1,6 @@
 import uuid
 from ecdsa import SigningKey, SECP256k1
-from mybankutxocoin import TxIn, TxOut, Tx, Bank
+from bankutxocoin import TxIn, TxOut, Tx, Bank
 
 # The usual suspects
 bob_private_key = SigningKey.generate(curve=SECP256k1)

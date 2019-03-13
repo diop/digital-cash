@@ -46,6 +46,15 @@ class Bank:
 
     def __init__(self):
         self.txs = {}
+        # (tx_id, index) -> tx_out
+        self.utxo = {}
+
+    def update_utxo(self, tx):
+        for tx_in in tx.tx_ins:
+            del self.utxo[tx_in.outpoint]
+
+        for tx_out in tx.tx_outs:
+            self.utxo[tx_out.outpoint] = tx_out
 
     def issue(self, amount, public_key):
         id_ = str(uuid.uuid4())
@@ -53,22 +62,16 @@ class Bank:
         tx_outs = [TxOut(tx_id=id_, index=0, amount=amount, public_key=public_key)]
         tx = Tx(id=id_, tx_ins=tx_ins, tx_outs=tx_outs)
         self.txs[tx.id] = tx
+        self.update_utxo(tx)
         return tx
-
-    def is_unspent(self, tx_in):
-        for tx in self.txs.values():
-            for _tx_in in tx.tx_ins:
-                if tx_in.tx_id == _tx_in.tx_id and tx_in.index == _tx_in.index:
-                    return False
-        return True
 
     def validate_tx(self, tx):
         in_sum = 0
         out_sum = 0
         for tx_in in tx.tx_ins:
-            assert self.is_unspent(tx_in)
+            assert tx_in.outpoint in self.utxo
 
-            tx_out = self.txs[tx_in.tx_id].tx_outs[tx_in.index]
+            tx_out = self.utxo[tx_in.outpoint]
             # Verify signature using public key of TxOut we're spending
             public_key = tx_out.public_key
             public_key.verify(tx_in.signature, tx_in.spend_message)
@@ -85,18 +88,11 @@ class Bank:
     def handle_tx(self, tx):
         # Save to self.txs if it's valid
         self.validate_tx(tx)
-        self.txs[tx.id] = tx
+        self.update_utxo(tx)
 
     def fetch_utxo(self, public_key):
-        # Find which (tx_id, index) pairs have been spent
-        spent_pairs = [(tx_in.tx_id, tx_in.index) 
-                        for tx in self.txs.values() 
-                        for tx_in in tx.tx_ins]
-        # Return tx_outs associated with public_key and not in ^^ list
-        return [tx_out for tx in self.txs.values() 
-                   for i, tx_out in enumerate(tx.tx_outs)
-                       if public_key.to_string() == tx_out.public_key.to_string()
-                       and (tx.id, i) not in spent_pairs]
+        return [utxo for utxo in self.utxo.values()
+                if utxo.public_key.to_string() == public_key.to_string()]
 
     def fetch_balance(self, public_key):
         # Fetch utxo associated with this public key
