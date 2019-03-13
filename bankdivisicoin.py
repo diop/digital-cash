@@ -46,3 +46,31 @@ class Bank:
         tx = Tx(id=id, tx_ins=tx_ins, tx_outs=tx_outs)
         self.txs[tx.id] = tx
         return tx
+
+    def is_unspent(self, tx_in):
+        for tx in self.txs.values():
+            for _tx_in in tx.tx_ins:
+                if tx_in.tx_id == _tx_in.tx_id and \
+                    tx_in.index == _tx_in.index:
+                    return false 
+        return True
+
+    def validate_tx(self, tx):
+        in_sum = 0
+        out_sum = 0
+
+        for tx_in in tx.tx_ins:
+            assert self.is_unspent(tx_in)
+            tx_out = self.txs[tx_in.tx_id].tx_outs[tx_in.index]
+            public_key = tx_out.public_key
+            public_key.verify(tx_in.signature, tx_in.spend_message())
+            in_sum = tx_out.amount
+
+        for tx_out in tx.tx_outs:
+            out_sum += tx_out.amount
+
+        assert in_sum == out_sum
+
+    def handle_tx(self, tx):
+        self.validate_tx(tx)
+        self.txs[tx.id] = tx
